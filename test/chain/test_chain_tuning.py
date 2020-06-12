@@ -1,14 +1,14 @@
 import os
+from datetime import timedelta
 from random import seed
 
 import pytest
-from sklearn.metrics import mean_squared_error as mse, roc_auc_score as roc
+from sklearn.metrics import mean_squared_error as mse
 
 from core.composer.chain import Chain
 from core.composer.node import PrimaryNode, SecondaryNode
 from core.models.data import InputData, train_test_data_setup
 from core.repository.tasks import Task, TaskTypesEnum
-from datetime import timedelta
 
 seed(1)
 
@@ -16,14 +16,14 @@ seed(1)
 @pytest.fixture()
 def regression_dataset():
     test_file_path = str(os.path.dirname(__file__))
-    file = os.path.join('data', 'advanced_regression.csv')
+    file = os.path.join('../data', 'advanced_regression.csv')
     return InputData.from_csv(os.path.join(test_file_path, file), task=Task(TaskTypesEnum.regression))
 
 
 @pytest.fixture()
 def classification_dataset():
     test_file_path = str(os.path.dirname(__file__))
-    file = os.path.join('data', 'advanced_classification.csv')
+    file = os.path.join('../data', 'advanced_classification.csv')
     return InputData.from_csv(os.path.join(test_file_path, file), task=Task(TaskTypesEnum.classification))
 
 
@@ -33,7 +33,6 @@ def get_regr_chain():
     second = PrimaryNode(model_type='knnreg')
     final = SecondaryNode(model_type='linear',
                           nodes_from=[first, second])
-
     chain = Chain()
     chain.add_node(final)
 

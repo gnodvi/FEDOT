@@ -1,8 +1,9 @@
 import json
 import os
 import warnings
-from dataclasses import dataclass
 from typing import Any, List, Optional
+
+from dataclasses import dataclass
 
 from core.repository.dataset_types import DataTypesEnum
 from core.repository.json_evaluation import eval_field_str, eval_strategy_str, read_field

@@ -1,14 +1,15 @@
-import os
 import json
+import os
+
+from core.models.evaluation.evaluation import SkLearnClassificationStrategy
+from core.repository.json_evaluation import eval_field_str, eval_strategy_str, read_field
 from core.repository.model_types_repository import ModelTypesRepository
 from core.repository.tasks import TaskTypesEnum
-from core.repository.json_evaluation import read_field, eval_field_str, eval_strategy_str
-from core.models.evaluation.evaluation import SkLearnClassificationStrategy
 
 
 def mocked_path():
     test_data_path = str(os.path.dirname(__file__))
-    repo_json_file_path = os.path.join(test_data_path, 'data/model_repository.json')
+    repo_json_file_path = os.path.join(test_data_path, '../data/model_repository.json')
     return repo_json_file_path
 
 
