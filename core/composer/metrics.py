@@ -57,8 +57,11 @@ class RmseMetric(QualityMetric):
 
     @staticmethod
     def metric(reference: InputData, predicted: OutputData) -> float:
+        predict = predicted.predict
+        if len(predicted.predict.shape) > 1:
+            predict = predicted.predict[:, -1]
         return mean_squared_error(y_true=reference.target,
-                                  y_pred=predicted.predict)
+                                  y_pred=predict)
 
 
 class F1Metric(QualityMetric):

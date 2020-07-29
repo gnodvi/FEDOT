@@ -16,7 +16,7 @@ from copy import deepcopy
 def get_composite_chain():
     chain = Chain()
     node_trend = PrimaryNode('trend_data_model')
-    node_lstm_trend = SecondaryNode('lstm', nodes_from=[node_trend])
+    node_lstm_trend = SecondaryNode('linear', nodes_from=[node_trend])
 
     node_residual = PrimaryNode('residual_data_model')
     node_ridge_residual = SecondaryNode('rfr', nodes_from=[node_residual])
@@ -69,8 +69,8 @@ def compare_plot(predicted, real, forecast_length, model_name):
     plt.show()
 
 def run_metocean_forecasting_problem(train_file_path, test_file_path,
-                                     forecast_length=1, max_window_size=32,
-                                     period=12, is_visualise=False):
+                                     forecast_length=100, max_window_size=100,
+                                     period=1, is_visualise=False):
     # specify the task to solve
     task_to_solve = Task(TaskTypesEnum.ts_forecasting,
                          TsForecastingParams(forecast_length=forecast_length,
@@ -129,4 +129,4 @@ if __name__ == '__main__':
     full_path_test = os.path.join(str(project_root()), file_path_test)
 
     run_metocean_forecasting_problem(full_path_train, full_path_test,
-                                     forecast_length=2, is_visualise=True)
+                                     forecast_length=100, max_window_size=100, is_visualise=True)

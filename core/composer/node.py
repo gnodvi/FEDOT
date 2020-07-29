@@ -154,7 +154,7 @@ def _preprocessing_strategy(dataset_type: DataTypesEnum, model: Model):
     _preprocessing_for_tasks = {
         DataTypesEnum.ts: DefaultStrategy,
         DataTypesEnum.table: Scaling,
-        DataTypesEnum.ts_lagged_table: Scaling,
+        DataTypesEnum.ts_lagged_table: DefaultStrategy,
         DataTypesEnum.ts_lagged_3d: LaggedTimeSeriesFeature3dStrategy,
     }
     if 'without_preprocessing' not in model.metadata.tags:

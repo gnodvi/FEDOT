@@ -1,6 +1,8 @@
 import os
 from datetime import timedelta
 
+import pytest
+
 from examples.chain_from_automl import run_chain_from_automl
 from examples.forecasting_model_composing import run_metocean_forecasting_problem
 from examples.multiclass_prediction import get_model
@@ -25,6 +27,7 @@ def test_tpot_vs_fedot_example():
     assert auc > 0.5
 
 
+@pytest.mark.skip('Temporary removed')
 def test_forecasting_model_composing_example():
     test_file_path = str(os.path.dirname(__file__))
     file_path_train = os.path.join(test_file_path, 'data/simple_time_series.csv')

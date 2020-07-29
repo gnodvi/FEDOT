@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import mean_squared_error as mse
 
 from core.composer.chain import Chain
-from core.composer.gp_composer.fixed_structure_composer import FixedStructureComposer
+from core.composer.gp_composer.fixed_structure_composer import GPComposer
 from core.composer.gp_composer.gp_composer import GPComposerRequirements
 from core.composer.node import PrimaryNode, SecondaryNode
 from core.composer.visualisation import ComposerVisualiser
@@ -41,6 +41,9 @@ def calculate_validation_metric(pred: OutputData, valid: InputData,
     predicted = pred.predict[window_size + forecast_length:]
     real = valid.target[window_size + forecast_length:]
 
+    if len(predicted.shape) > 1:
+        predicted = predicted[:, -1]
+
     # plot results
     if is_visualise:
         compare_plot(predicted, real,
@@ -71,7 +74,7 @@ def run_metocean_forecasting_problem(train_file_path, test_file_path, forecast_l
     task_to_solve = Task(TaskTypesEnum.ts_forecasting,
                          TsForecastingParams(forecast_length=forecast_length,
                                              max_window_size=max_window_size,
-                                             period=None))
+                                             period=12))
 
     full_path_train = os.path.join(str(project_root()), train_file_path)
     dataset_to_train = InputData.from_csv(
@@ -93,20 +96,21 @@ def run_metocean_forecasting_problem(train_file_path, test_file_path, forecast_l
                                        'ridge', 'lasso',
                                        'additive_data_model']
 
-    composer = FixedStructureComposer()
+    composer = GPComposer()
 
     composer_requirements = GPComposerRequirements(
         primary=available_model_types_primary,
         secondary=available_model_types_secondary, max_arity=2,
-        max_depth=4, pop_size=10, num_of_generations=10,
+        max_depth=3, pop_size=10, num_of_generations=10,
         crossover_prob=0, mutation_prob=0.8,
-        max_lead_time=datetime.timedelta(minutes=20))
+        max_lead_time=datetime.timedelta(minutes=20),
+        add_single_model_chains=False)
 
     chain = composer.compose_chain(data=dataset_to_train,
-                                   initial_chain=ref_chain,
+                                   initial_chain=None,
                                    composer_requirements=composer_requirements,
                                    metrics=metric_function,
-                                   is_visualise=False)
+                                   is_visualise=True)
 
     if with_visualisation:
         ComposerVisualiser.visualise(chain)
@@ -133,4 +137,5 @@ if __name__ == '__main__':
     file_path_test = 'cases/data/metocean/metocean_data_test.csv'
     full_path_test = os.path.join(str(project_root()), file_path_test)
 
-    run_metocean_forecasting_problem(full_path_train, full_path_test, forecast_length=1)
+    run_metocean_forecasting_problem(full_path_train, full_path_test,
+                                     max_window_size=12, forecast_length=12)
