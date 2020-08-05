@@ -1,3 +1,5 @@
+from functools import partial
+
 import numpy as np
 from scipy import signal
 from statsmodels.tsa.seasonal import seasonal_decompose
@@ -5,7 +7,6 @@ from statsmodels.tsa.seasonal import seasonal_decompose
 from core.models.data import InputData
 from core.models.evaluation.evaluation import EvaluationStrategy
 
-from functools import partial
 
 def get_data(predict_data: InputData):
     return predict_data.features
@@ -19,12 +20,12 @@ def get_difference(predict_data: InputData):
 
 
 def get_sum(predict_data: InputData):
-    if predict_data.features.shape[-1   ] % 2 != 0:
+    if predict_data.features.shape[-1] % 2 != 0:
         raise ValueError('Wrong number of inputs for the additive model')
     sh = predict_data.features.shape[-1] // 2
     s = np.zeros((*predict_data.features.shape[:-1], sh))
     for i in range(2):
-        s += predict_data.features[..., i*sh : (i+1)*sh]
+        s += predict_data.features[..., i * sh: (i + 1) * sh]
     return s
 
 
@@ -33,6 +34,8 @@ def _estimate_period(variable):
     f, pxx_den = signal.welch(variable, fs=1, scaling='spectrum',
                               nfft=int(len(variable) / analyse_ratio),
                               nperseg=int(len(variable) / analyse_ratio))
+    if f[np.argmax(pxx_den)] == 0:
+        return 100
     period = int(1 / f[np.argmax(pxx_den)])
     return period
 

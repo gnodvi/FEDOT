@@ -1,8 +1,8 @@
-from dataclasses import dataclass
 from typing import List, Tuple
 
 import numpy as np
 import pandas as pd
+from dataclasses import dataclass
 from sklearn.model_selection import train_test_split
 
 from core.repository.dataset_types import DataTypesEnum
@@ -46,7 +46,9 @@ class Data:
 
         dataset_merging_funcs = {
             DataTypesEnum.ts: _combine_datasets_ts,
-            DataTypesEnum.table: _combine_datasets_table
+            DataTypesEnum.table: _combine_datasets_table,
+            DataTypesEnum.forecasted_ts: _combine_datasets_ts_for,
+
         }
         dataset_merging_funcs.setdefault(data_type, _combine_datasets_common)
 
@@ -107,14 +109,33 @@ def _combine_datasets_ts(outputs: List[OutputData]):
     expected_len = max([len(output.idx) for output in outputs])
     for elem in outputs:
         predict = elem.predict
-        if len(elem.predict) != expected_len:
-            if isinstance(elem.predict, list):
-                predict = np.zeros(expected_len - len(elem.predict)) + elem.predict
-            else:
-                zeros = np.zeros((expected_len - len(predict), *predict.shape[1:]))
-                predict = np.concatenate((zeros, predict))
+        # if len(elem.predict) != expected_len:
+        #    if isinstance(elem.predict, list):
+        #        predict = np.zeros(expected_len - len(elem.predict)) + elem.predict
+        #    else:
+        #        zeros = np.zeros((expected_len - len(predict), *predict.shape[1:]))
+        #        predict = np.concatenate((zeros, predict))
 
         features.append(predict)
+
+    features = np.column_stack(features)
+
+    return features
+
+
+def _combine_datasets_ts_for(outputs: List[OutputData]):
+    features = list()
+    expected_len = max([len(output.idx) for output in outputs])
+    for elem in outputs:
+        predict = elem.predict
+        # if len(elem.predict) != expected_len:
+        #    if isinstance(elem.predict, list):
+        #        predict = np.zeros(expected_len - len(elem.predict)) + elem.predict
+        #    else:
+        #        zeros = np.zeros((expected_len - len(predict), *predict.shape[1:]))
+        #        predict = np.concatenate((zeros, predict))
+
+        features.append(predict[:, -1])
 
     features = np.column_stack(features)
 

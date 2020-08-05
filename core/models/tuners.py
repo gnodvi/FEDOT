@@ -33,7 +33,8 @@ class Tuner:
     def _is_score_better(self, previous, current):
         __compare = {
             'classification': operator.gt,
-            'regression': operator.lt
+            'regression': operator.lt,
+            'ts_forecasting': operator.lt
         }
         comparison = __compare.get(self.tune_data.task.task_type.name)
         try:

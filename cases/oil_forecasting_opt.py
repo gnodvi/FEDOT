@@ -1,3 +1,4 @@
+import datetime
 import os
 from copy import copy
 
@@ -6,39 +7,16 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_squared_error as mse
 
+from cases.oil_forecasting import get_comp_chain
 from core.composer.chain import Chain
-from core.composer.node import PrimaryNode, SecondaryNode
+from core.composer.gp_composer.fixed_structure_composer import GPComposer
+from core.composer.gp_composer.gp_composer import GPComposerRequirements
+from core.composer.node import PrimaryNode
 from core.models.data import InputData, OutputData
 from core.repository.dataset_types import DataTypesEnum
+from core.repository.quality_metrics_repository import MetricsRepository, RegressionMetricsEnum
 from core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
 from core.utils import project_root
-
-
-def get_ms_chain():
-    chain = Chain()
-    node_trend = PrimaryNode('trend_data_model')
-    node_lstm_trend = SecondaryNode('rfr', nodes_from=[node_trend])
-
-    node_residual = PrimaryNode('residual_data_model')
-    node_ridge_residual = SecondaryNode('rfr', nodes_from=[node_residual])
-
-    node_final = SecondaryNode('additive_data_model',
-                               nodes_from=[node_ridge_residual, node_lstm_trend])
-    chain.add_node(node_final)
-    return chain
-
-def get_comp_chain():
-    chain = Chain()
-    node_1 = PrimaryNode('rfr')
-    #node_lstm_trend = SecondaryNode('rfr', nodes_from=[node_trend])
-
-    node_2 = PrimaryNode('dtreg')
-    #node_ridge_residual = SecondaryNode('rfr', nodes_from=[node_residual])
-
-    node_final = SecondaryNode('linear',
-                               nodes_from=[node_1, node_2])
-    chain.add_node(node_final)
-    return chain
 
 
 def calculate_validation_metric(pred: OutputData, pred_crm, pred_crm_opt, valid: InputData,
@@ -48,7 +26,9 @@ def calculate_validation_metric(pred: OutputData, pred_crm, pred_crm_opt, valid:
     # skip initial part of time series
     predicted = pred.predict[:, pred.predict.shape[1] - 1]
     predicted_crm = pred_crm.predict[:, pred_crm.predict.shape[1] - 1]
-    predicted_crm_opt = pred_crm_opt.predict#[:, pred_crm_opt.predict.shape[1] - 1]
+    predicted_crm_opt = pred_crm_opt.predict
+    if len(predicted_crm_opt.shape) > 1:
+        predicted_crm_opt = predicted_crm_opt[:, predicted_crm_opt.shape[1] - 1]
 
     real = valid.target[max(len(valid.target) - len(predicted), 0):]
 
@@ -131,7 +111,34 @@ def run_oil_forecasting_problem(train_file_path,
     prediction_full = None
     prediction_full_crm = None
     prediction_full_crm_opt = None
+
+    composer = GPComposer()
+
+    available_model_types = ['rfr', 'linear',
+                             'ridge', 'lasso',
+                             'knnreg', 'dtreg']
+
+    composer_requirements = GPComposerRequirements(
+        primary=available_model_types,
+        secondary=available_model_types, max_arity=4,
+        max_depth=1, pop_size=10, num_of_generations=10,
+        crossover_prob=0.0, mutation_prob=0.6,
+        max_lead_time=datetime.timedelta(minutes=20),
+        add_single_model_chains=True)
+
+    metric_function = MetricsRepository().metric_by_id(RegressionMetricsEnum.RMSE)
+
+    node_1 = PrimaryNode('rfr')
+    # node_2 = PrimaryNode('dtreg')
+    # node_single = SecondaryNode('knnreg', nodes_from=[node_1, node_2])
+    chain_template = get_comp_chain()  # Chain(node_1)
+
     for forecasting_step in range(4):
+
+        if forecasting_step > 0:
+            dataset_to_train_local_crm_prev = dataset_to_train_local_crm
+            dataset_to_validate_local_crm_prev = dataset_to_validate_local_crm
+
         depth = 100
         start = 0 + depth * forecasting_step
         end = depth * 2 + depth * (forecasting_step + 1)
@@ -162,24 +169,49 @@ def run_oil_forecasting_problem(train_file_path,
 
         # print(dataset_to_validate_local.features.shape)
 
-        node_1 = PrimaryNode('rfr')
-        chain_simple = Chain(node_1)
+        node_single = PrimaryNode('rfr')
+        chain_simple = Chain(node_single)
 
         node_single2 = PrimaryNode('rfr')
-        chain_simple_crm = Chain(node_single2)
-
-        #node_1 = PrimaryNode('rfr')
-        #node_2 = PrimaryNode('dtreg')
-        #node_single = SecondaryNode('knnreg', nodes_from=[node_1, node_2])
-        chain_crm_opt = get_comp_chain()#Chain(node_single)
+        chain_simple2 = Chain(node_single2)
 
         chain_simple.fit(input_data=dataset_to_train_local, verbose=False)
-        chain_simple_crm.fit(input_data=dataset_to_train_local_crm, verbose=False)
-        chain_crm_opt.fit(input_data=dataset_to_train_local_crm, verbose=False)
+        chain_simple2.fit(input_data=dataset_to_train_local_crm, verbose=False)
 
         prediction = chain_simple.predict(dataset_to_validate_local)
-        prediction_crm = chain_simple_crm.predict(dataset_to_validate_local_crm)
+        prediction_crm = chain_simple2.predict(dataset_to_validate_local_crm)
+
+        if forecasting_step > 0:
+            dataset_to_opt_crm_prev = copy(dataset_to_train_local_crm_prev)
+            dataset_to_opt_crm_prev.idx = range(
+                len(dataset_to_train_local_crm_prev.idx) + len(dataset_to_validate_local_crm_prev.idx))
+            dataset_to_opt_crm_prev.target = np.append(dataset_to_train_local_crm_prev.target,
+                                                       dataset_to_validate_local_crm.target)
+            dataset_to_opt_crm_prev.features = np.append(dataset_to_train_local_crm_prev.features,
+                                                         dataset_to_validate_local_crm.features, axis=0)
+
+            chain_crm_opt = composer.compose_chain(data=dataset_to_opt_crm_prev,
+                                                   initial_chain=chain_template,
+                                                   composer_requirements=composer_requirements,
+                                                   metrics=metric_function,
+                                                   is_visualise=False)
+        else:
+            from copy import deepcopy
+            chain_crm_opt = deepcopy(chain_template)
+
+        # chain_crm_opt = deepcopy(chain_template)
+        # chain_crm_opt.fine_tune_primary_nodes(dataset_to_train_local_crm)
+        chain_crm_opt.fit(dataset_to_train_local_crm)
+
+        # save_fedot_model(chain_crm_opt, 'chain_crm_opt')
+
         prediction_crm_opt = chain_crm_opt.predict(dataset_to_validate_local_crm)
+
+        if len(prediction_crm_opt.predict.shape) > 1:
+            prediction_crm_opt.predict = prediction_crm_opt.predict[:, -1]
+
+        import gc
+        gc.collect()
 
         if not prediction_full:
             prediction_full = prediction
@@ -193,13 +225,11 @@ def run_oil_forecasting_problem(train_file_path,
             prediction_full_crm.idx = np.append(prediction_full_crm.idx, prediction_crm.idx)
             prediction_full_crm.predict = np.append(prediction_full_crm.predict, prediction_crm.predict, axis=0)
 
-
         if not prediction_full_crm_opt:
             prediction_full_crm_opt = prediction_crm_opt
         else:
             prediction_full_crm_opt.idx = np.append(prediction_full_crm_opt.idx, prediction_crm_opt.idx)
-            prediction_full_crm_opt.predict = np.append(prediction_full_crm_opt.predict, prediction_crm_opt.predict,
-                                                        axis=0)
+            prediction_full_crm_opt.predict = np.append(prediction_full_crm_opt.predict, prediction_crm_opt.predict)
 
     rmse_on_valid_simple = calculate_validation_metric(
         prediction_full, prediction_full_crm, prediction_full_crm_opt, dataset_to_validate,

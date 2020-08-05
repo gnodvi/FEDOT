@@ -34,7 +34,7 @@ class GPComposer(Composer):
                       metrics: Optional[Callable], optimiser_parameters: GPChainOptimiserParameters = None,
                       is_visualise: bool = False, is_tune: bool = False) -> Chain:
 
-        train_data, test_data = train_test_data_setup(data, 0.8)
+        train_data, test_data = train_test_data_setup(data, 0.5)
         self.shared_cache.clear()
 
         metric_function_for_nodes = partial(self.metric_for_nodes,

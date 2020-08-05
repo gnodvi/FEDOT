@@ -22,8 +22,8 @@ np.random.seed(1)
 
 def save_fedot_model(chain, file_name: str):
     path_to_file = str(os.path.dirname(__file__))
-    with open(f'{path_to_file}/{file_name}.pkl', 'wb') as pickle_file:
-        dump(chain, pickle_file)
+    #with open(f'{path_to_file}/{file_name}.pkl', 'wb') as pickle_file:
+    #    dump(chain, pickle_file)
     ComposerVisualiser.visualise(chain, f'{path_to_file}/{file_name}.png')
 
 

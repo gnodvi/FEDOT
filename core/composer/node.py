@@ -192,6 +192,10 @@ class PrimaryNode(Node):
 
         predict_train = self.model.predict(fitted_model=self.cache.actual_cached_state.model,
                                            data=preprocessed_data)
+
+        #expected_len = len(input_data.idx)
+        #predict_train = np.zeros(expected_len - len(predict_train)) + predict_train
+
         return OutputData(idx=input_data.idx,
                           features=input_data.features,
                           predict=predict_train, task=input_data.task,
@@ -291,7 +295,7 @@ class SecondaryNode(Node):
         if verbose:
             print(f'Obtain prediction in secondary node with model: {self.model}')
 
-        preprocessed_data = transformation_function_for_data(input_data.data_type,
+        preprocessed_data = transformation_function_for_data(secondary_input.data_type,
                                                              self.model.metadata.input_types)(secondary_input)
 
         evaluation_result = self.model.predict(fitted_model=self.cache.actual_cached_state.model,

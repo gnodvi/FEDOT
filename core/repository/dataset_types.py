@@ -12,3 +12,5 @@ class DataTypesEnum(Enum):
 
     # 3d dataset with lagged features - (n, window_len, features)
     ts_lagged_3d = 'time_series_lagged_3d'
+
+    forecasted_ts = 'time_series_forecasted'

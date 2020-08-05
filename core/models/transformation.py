@@ -143,6 +143,15 @@ def direct(input_data: InputData) -> InputData:
     return copy(input_data)
 
 
+def ts_forecasted_to_table(input_data: InputData) -> InputData:
+    transformed_data = copy(input_data)
+
+    # get last forecasted value
+    transformed_data.features = ts_forecasted_to_table[:, -1]
+
+    return transformed_data
+
+
 # from datatype / to datatype : function
 _transformation_functions_for_data_types = {
     (DataTypesEnum.ts, DataTypesEnum.ts_lagged_3d):
@@ -156,9 +165,9 @@ _transformation_functions_for_data_types = {
     (DataTypesEnum.ts_lagged_3d, DataTypesEnum.ts):
         ts_lagged_3d_to_ts,
     (DataTypesEnum.ts_lagged_3d, DataTypesEnum.ts_lagged_table):
-        ts_lagged_3d_to_lagged_table
+        ts_lagged_3d_to_lagged_table,
+    (DataTypesEnum.forecasted_ts, DataTypesEnum.table): direct
 }
-
 
 def transformation_function_for_data(input_data_type: DataTypesEnum,
                                      required_data_types: List[DataTypesEnum]):

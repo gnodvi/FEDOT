@@ -27,13 +27,14 @@ def get_ms_chain():
     chain.add_node(node_final)
     return chain
 
+
 def get_comp_chain():
     chain = Chain()
     node_1 = PrimaryNode('rfr')
-    #node_lstm_trend = SecondaryNode('rfr', nodes_from=[node_trend])
+    # node_lstm_trend = SecondaryNode('rfr', nodes_from=[node_trend])
 
     node_2 = PrimaryNode('dtreg')
-    #node_ridge_residual = SecondaryNode('rfr', nodes_from=[node_residual])
+    # node_ridge_residual = SecondaryNode('rfr', nodes_from=[node_residual])
 
     node_final = SecondaryNode('linear',
                                nodes_from=[node_1, node_2])
@@ -48,7 +49,7 @@ def calculate_validation_metric(pred: OutputData, pred_crm, pred_crm_opt, valid:
     # skip initial part of time series
     predicted = pred.predict[:, pred.predict.shape[1] - 1]
     predicted_crm = pred_crm.predict[:, pred_crm.predict.shape[1] - 1]
-    predicted_crm_opt = pred_crm_opt.predict#[:, pred_crm_opt.predict.shape[1] - 1]
+    predicted_crm_opt = pred_crm_opt.predict  # [:, pred_crm_opt.predict.shape[1] - 1]
 
     real = valid.target[max(len(valid.target) - len(predicted), 0):]
 
@@ -131,6 +132,10 @@ def run_oil_forecasting_problem(train_file_path,
     prediction_full = None
     prediction_full_crm = None
     prediction_full_crm_opt = None
+
+    dataset_to_train_local_crm_full = None
+    dataset_to_train_local_full = None
+
     for forecasting_step in range(4):
         depth = 100
         start = 0 + depth * forecasting_step
@@ -168,14 +173,33 @@ def run_oil_forecasting_problem(train_file_path,
         node_single2 = PrimaryNode('rfr')
         chain_simple_crm = Chain(node_single2)
 
-        #node_1 = PrimaryNode('rfr')
-        #node_2 = PrimaryNode('dtreg')
-        #node_single = SecondaryNode('knnreg', nodes_from=[node_1, node_2])
-        chain_crm_opt = get_comp_chain()#Chain(node_single)
+        # node_1 = PrimaryNode('rfr')
+        # node_2 = PrimaryNode('dtreg')
+        # node_single = SecondaryNode('knnreg', nodes_from=[node_1, node_2])
+        chain_crm_opt = get_comp_chain()  # Chain(node_single)
 
-        chain_simple.fit(input_data=dataset_to_train_local, verbose=False)
-        chain_simple_crm.fit(input_data=dataset_to_train_local_crm, verbose=False)
-        chain_crm_opt.fit(input_data=dataset_to_train_local_crm, verbose=False)
+        if not dataset_to_train_local_full:
+            dataset_to_train_local_full = dataset_to_train_local
+        else:
+            dataset_to_train_local_full.target = np.append(dataset_to_train_local_full.target,
+                                                           dataset_to_train_local.target)
+            dataset_to_train_local_full.features = np.append(dataset_to_train_local_full.features,
+                                                             dataset_to_train_local.features, axis=0)
+            dataset_to_train_local_full.idx = np.append(dataset_to_train_local_full.idx,
+                                                        dataset_to_train_local.idx)
+        if not dataset_to_train_local_crm_full:
+            dataset_to_train_local_crm_full = dataset_to_train_local_crm
+        else:
+            dataset_to_train_local_crm_full.features = np.append(dataset_to_train_local_crm_full.features,
+                                                                 dataset_to_train_local_crm.features, axis=0)
+            dataset_to_train_local_crm_full.target = np.append(dataset_to_train_local_crm_full.target,
+                                                               dataset_to_train_local_crm.target)
+            dataset_to_train_local_crm_full.idx = np.append(dataset_to_train_local_crm_full.idx,
+                                                            dataset_to_train_local_crm.idx)
+
+        chain_simple.fit(input_data=dataset_to_train_local_full, verbose=False)
+        chain_simple_crm.fit(input_data=dataset_to_train_local_crm_full, verbose=False)
+        chain_crm_opt.fit(input_data=dataset_to_train_local_crm_full, verbose=False)
 
         prediction = chain_simple.predict(dataset_to_validate_local)
         prediction_crm = chain_simple_crm.predict(dataset_to_validate_local_crm)
@@ -192,7 +216,6 @@ def run_oil_forecasting_problem(train_file_path,
         else:
             prediction_full_crm.idx = np.append(prediction_full_crm.idx, prediction_crm.idx)
             prediction_full_crm.predict = np.append(prediction_full_crm.predict, prediction_crm.predict, axis=0)
-
 
         if not prediction_full_crm_opt:
             prediction_full_crm_opt = prediction_crm_opt

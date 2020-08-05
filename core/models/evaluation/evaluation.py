@@ -25,7 +25,7 @@ from sklearn.svm import LinearSVR as SklearnSVR
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 from xgboost import XGBClassifier, XGBRegressor
 
-from core.models.data import InputData, OutputData
+from core.models.data import DataTypesEnum, InputData, OutputData
 from core.models.evaluation.custom_models.models import CustomSVC
 from core.models.evaluation.hyperparams import params_range_by_model
 from core.models.tuners import SklearnCustomRandomTuner, SklearnTuner
@@ -95,6 +95,10 @@ class SkLearnEvaluationStrategy(EvaluationStrategy):
             sklearn_model = self._sklearn_model_impl(**self.params_for_fit)
         else:
             sklearn_model = self._sklearn_model_impl()
+
+        if train_data.data_type == DataTypesEnum.table and len(train_data.target) > len(train_data.features):
+            train_data.target = \
+                train_data.target[len(train_data.target) - len(train_data.features):]
 
         sklearn_model.fit(train_data.features, train_data.target)
         return sklearn_model
