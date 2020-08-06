@@ -65,7 +65,6 @@ class RmseMetric(QualityMetric):
 
         if len(target) > len(predict):
             target = target[len(target) - len(predict):]
-        import matplotlib.pyplot as plt
         #plt.clf()
         #plt.plot(target)
         #plt.plot(predict)
@@ -76,7 +75,7 @@ class RmseMetric(QualityMetric):
         return mean_squared_error(y_true=target,
                                   y_pred=predict, squared=False)
 
-class DtwMetric(QualityMetric):
+class DtwDist(QualityMetric):
     default_value = sys.maxsize
 
     @staticmethod
@@ -89,17 +88,10 @@ class DtwMetric(QualityMetric):
 
         if len(target) > len(predict):
             target = target[len(target) - len(predict):]
-        import matplotlib.pyplot as plt
-        plt.clf()
-        plt.plot(target)
-        plt.plot(predict)
-        fit = round(mean_squared_error(y_true=target,
-                                  y_pred=predict, squared=False))
-        plt.title(fit)
-        plt.savefig(f'D:/tmp/opt_{fit}.png')
-        return mean_squared_error(y_true=target,
-                                  y_pred=predict, squared=False)
 
+        from dtw import dtw
+        dtw_value, _, _, _ = dtw(target, predict, dist=lambda x, y: np.sqrt(x ** 2 + y ** 2))
+        return dtw_value
 
 class F1Metric(QualityMetric):
     default_value = 0

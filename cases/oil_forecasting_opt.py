@@ -53,12 +53,20 @@ def calculate_validation_metric(pred: OutputData, pred_crm, pred_crm_opt, valid:
     rmse_crm_opt = mse(y_true=real, y_pred=predicted_crm_opt, squared=False)
     rmse_crm = mse(y_true=real, y_pred=crm, squared=False)
 
+    from dtw import dtw
+    dist = lambda x, y: np.sqrt(x ** 2 + y ** 2)
+    dtw_ml, _, _, _ = dtw(real, predicted, dist)
+    dtw_ml_crm, _, _, _ = dtw(real, predicted_crm, dist)
+    dtw_crm_opt, _, _, _ = dtw(real, predicted_crm_opt, dist)
+    dtw_crm, _, _, _ = dtw(real, list(crm), dist)
+
     # plot results
     if is_visualise:
         compare_plot(predicted, predicted_crm, predicted_crm_opt, real,
                      forecast_length=forecast_length,
                      model_name=name, err=rmse_crm)
-    return rmse_crm, rmse_ml, rmse_ml_crm, rmse_crm_opt
+    return rmse_crm, rmse_ml, rmse_ml_crm, rmse_crm_opt, \
+           dtw_crm, dtw_ml, dtw_ml_crm, dtw_crm_opt
 
 
 def compare_plot(predicted, predicted_crm, predicted_crm_opt, real, forecast_length, model_name, err):
@@ -133,12 +141,12 @@ def run_oil_forecasting_problem(train_file_path,
     composer_requirements = GPComposerRequirements(
         primary=available_model_types,
         secondary=available_model_types, max_arity=4,
-        max_depth=1, pop_size=10, num_of_generations=20,
+        max_depth=1, pop_size=10, num_of_generations=10,
         crossover_prob=0.6, mutation_prob=0.6,
         max_lead_time=datetime.timedelta(minutes=20),
         add_single_model_chains=True)
 
-    metric_function = MetricsRepository().metric_by_id(RegressionMetricsEnum.RMSE)
+    metric_function = MetricsRepository().metric_by_id(RegressionMetricsEnum.DTW)
 
     node_1 = PrimaryNode('rfr')
     # node_2 = PrimaryNode('dtreg')
@@ -268,6 +276,11 @@ def run_oil_forecasting_problem(train_file_path,
     print(f'RMSE ML: {round(rmse_on_valid_simple[1])}')
     print(f'RMSE ML with CRM: {round(rmse_on_valid_simple[2])}')
     print(f'Evo RMSE ML with CRM: {round(rmse_on_valid_simple[3])}')
+
+    print(f'DTW CRM: {round(rmse_on_valid_simple[4])}')
+    print(f'DTW ML: {round(rmse_on_valid_simple[5])}')
+    print(f'DTW ML with CRM: {round(rmse_on_valid_simple[6])}')
+    print(f'DTW RMSE ML with CRM: {round(rmse_on_valid_simple[7])}')
 
     return rmse_on_valid_simple
 
