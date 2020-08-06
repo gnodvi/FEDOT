@@ -1,5 +1,5 @@
 import math
-from copy import deepcopy
+from copy import deepcopy, copy
 from dataclasses import dataclass
 from functools import partial
 from typing import (Any, Callable, List, Optional, Tuple)
@@ -105,11 +105,12 @@ class GPChainOptimiser:
                     new_population[parent_num].fitness = objective_function(new_population[parent_num])
                     new_population[parent_num + 1].fitness = objective_function(new_population[parent_num + 1])
 
+                prev_best = copy(self.best_individual)
                 self.population = inheritance(self.parameters.genetic_scheme_type, self.parameters.selection_types,
                                               self.population,
                                               new_population, self.requirements.pop_size - 1)
 
-                self.population.append(self.best_individual)
+                self.population.append(prev_best)
 
                 self._add_to_history(self.population)
 

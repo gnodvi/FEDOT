@@ -1,6 +1,7 @@
 import datetime
 import os
 from copy import copy
+from random import seed
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -18,6 +19,9 @@ from core.repository.quality_metrics_repository import MetricsRepository, Regres
 from core.repository.tasks import Task, TaskTypesEnum, TsForecastingParams
 from core.utils import project_root
 
+seed(42)
+np.random.seed(42)
+
 
 def calculate_validation_metric(pred: OutputData, pred_crm, pred_crm_opt, valid: InputData,
                                 name: str, is_visualise=False):
@@ -30,13 +34,19 @@ def calculate_validation_metric(pred: OutputData, pred_crm, pred_crm_opt, valid:
     if len(predicted_crm_opt.shape) > 1:
         predicted_crm_opt = predicted_crm_opt[:, predicted_crm_opt.shape[1] - 1]
 
-    real = valid.target[max(len(valid.target) - len(predicted), 0):]
+    real = valid.target[300:]
+    real = real[:len(predicted)]
+
+    predicted = predicted[4:]
+    predicted_crm = predicted_crm[4:]
+    predicted_crm_opt = predicted_crm_opt[4:]
 
     file_path_crm = f'D:/THEODOR/cases/data/oil/crimp.csv'
 
     data_frame = pd.read_csv(file_path_crm, sep=',')
     crm = data_frame[f'mean_{name}'][(300 - 4):700]
     crm[np.isnan(crm)] = 0
+    crm = crm[:len(predicted)]
     # the quality assessment for the simulation results
     rmse_ml = mse(y_true=real, y_pred=predicted, squared=False)
     rmse_ml_crm = mse(y_true=real, y_pred=predicted_crm, squared=False)
@@ -63,9 +73,9 @@ def compare_plot(predicted, predicted_crm, predicted_crm_opt, real, forecast_len
 
     plt.clf()
     _, ax = plt.subplots()
+    # plt.figure(figsize=(10, 5))
     plt.plot(times, mean, label='CRM')
     plt.fill_between(times, min_int, max_int, alpha=0.2)
-
     plt.plot(real, linewidth=1, label="Observed", alpha=0.8)
     plt.plot(predicted, linewidth=1, label="ML", alpha=0.8)
     plt.plot(predicted_crm, linewidth=1, label="ML+CRM", alpha=0.8)
@@ -116,13 +126,15 @@ def run_oil_forecasting_problem(train_file_path,
 
     available_model_types = ['rfr', 'linear',
                              'ridge', 'lasso',
-                             'knnreg', 'dtreg']
+                             'knnreg', 'dtreg',
+                             'treg', 'adareg',
+                             'xgbreg']
 
     composer_requirements = GPComposerRequirements(
         primary=available_model_types,
         secondary=available_model_types, max_arity=4,
-        max_depth=1, pop_size=10, num_of_generations=10,
-        crossover_prob=0.0, mutation_prob=0.6,
+        max_depth=1, pop_size=10, num_of_generations=20,
+        crossover_prob=0.6, mutation_prob=0.6,
         max_lead_time=datetime.timedelta(minutes=20),
         add_single_model_chains=True)
 
@@ -182,16 +194,16 @@ def run_oil_forecasting_problem(train_file_path,
         prediction_crm = chain_simple2.predict(dataset_to_validate_local_crm)
 
         if forecasting_step > 0:
-            dataset_to_opt_crm_prev = copy(dataset_to_train_local_crm_prev)
+            dataset_to_opt_crm_prev = copy(dataset_to_train_local_crm)
             dataset_to_opt_crm_prev.idx = range(
-                len(dataset_to_train_local_crm_prev.idx) + len(dataset_to_validate_local_crm_prev.idx))
-            dataset_to_opt_crm_prev.target = np.append(dataset_to_train_local_crm_prev.target,
+                len(dataset_to_train_local_crm.idx) + len(dataset_to_validate_local_crm.idx))
+            dataset_to_opt_crm_prev.target = np.append(dataset_to_train_local_crm.target,
                                                        dataset_to_validate_local_crm.target)
-            dataset_to_opt_crm_prev.features = np.append(dataset_to_train_local_crm_prev.features,
+            dataset_to_opt_crm_prev.features = np.append(dataset_to_train_local_crm.features,
                                                          dataset_to_validate_local_crm.features, axis=0)
 
             chain_crm_opt = composer.compose_chain(data=dataset_to_opt_crm_prev,
-                                                   initial_chain=chain_template,
+                                                   initial_chain=None,
                                                    composer_requirements=composer_requirements,
                                                    metrics=metric_function,
                                                    is_visualise=False)
@@ -209,6 +221,21 @@ def run_oil_forecasting_problem(train_file_path,
 
         if len(prediction_crm_opt.predict.shape) > 1:
             prediction_crm_opt.predict = prediction_crm_opt.predict[:, -1]
+
+        plt.clf()
+        _, ax = plt.subplots()
+        plt.plot(prediction_crm_opt.predict, label='ml opt')
+        plt.plot(prediction_crm.predict[:, -1], label='ml')
+        plt.plot(dataset_to_validate_local_crm.target[199:], label='real')
+        mse1 = mse(dataset_to_validate_local_crm.target[199:], prediction_crm.predict[:, -1],
+                   squared=False)
+        mse2 = mse(dataset_to_validate_local_crm.target[199:], prediction_crm_opt.predict,
+                   squared=False)
+
+        plt.title(f'ml {mse1}, evo {mse2}')
+        ax.legend()
+
+        plt.savefig(f'D:/tmp/found_{forecasting_step}.png')
 
         import gc
         gc.collect()
